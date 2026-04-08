@@ -11,7 +11,7 @@ from app.tasks.task3_type_change import (
 )
 
 
-_REWARD_EPSILON = 1e-6
+_REWARD_EPSILON = 1e-4
 
 
 def _clamp_reward(value: float) -> float:

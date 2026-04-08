@@ -62,13 +62,13 @@ def log_start(task_id: str, difficulty: str) -> None:
 
 def log_step(step: int, action_type: str, reward: float, done: bool) -> None:
     print(
-        f"[STEP] step={step} action={action_type} reward={reward:.4f} done={str(done).lower()}",
+        f"[STEP] step={step} action={action_type} reward={reward:.6f} done={str(done).lower()}",
         flush=True,
     )
 
 
 def log_end(task_id: str, total_reward: float, steps: int) -> None:
-    print(f"[END] task_id={task_id} total_reward={total_reward:.4f} steps={steps}", flush=True)
+    print(f"[END] task_id={task_id} total_reward={total_reward:.6f} steps={steps}", flush=True)
 
 
 def _post_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:

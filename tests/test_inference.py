@@ -9,7 +9,7 @@ os.environ.setdefault("API_BASE_URL", "https://example.com/v1")
 os.environ.setdefault("MODEL_NAME", "test-model")
 
 import inference
-from inference import TASK3_RECOVERY_SQL, _controlled_action, _next_action, run_episode
+from inference import TASK3_RECOVERY_SQL, _controlled_action, _next_action, log_end, run_episode
 
 
 def _history_entry(
@@ -165,3 +165,11 @@ def test_run_episode_handles_reset_connection_error(monkeypatch: Any) -> None:
     monkeypatch.setattr(inference, "_post_json", _raise_error)
 
     assert run_episode("task1_add_column") == 0.0
+
+
+def test_log_end_keeps_subunit_reward_visible(capsys: Any) -> None:
+    log_end("task1_add_column", 0.9999, 3)
+
+    captured = capsys.readouterr()
+
+    assert "total_reward=0.999900" in captured.out
