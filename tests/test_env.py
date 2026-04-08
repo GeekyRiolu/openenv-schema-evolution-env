@@ -277,7 +277,17 @@ def test_server_wrapper_exists_for_validator() -> None:
     server_app_path = Path("server/app.py")
 
     assert server_app_path.exists()
-    assert "from app.main import app, main" in server_app_path.read_text()
+    content = server_app_path.read_text()
+
+    assert "from app.main import app" in content
+    assert "def main() -> None:" in content
+    assert "if __name__ == \"__main__\":" in content
+
+
+def test_server_wrapper_main_is_callable() -> None:
+    from server.app import main
+
+    assert callable(main)
 
 
 def test_uv_lock_exists_for_validator() -> None:
