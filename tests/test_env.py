@@ -270,4 +270,15 @@ def test_pyproject_declares_server_entrypoint_and_openenv_dependency() -> None:
     project = data["project"]
 
     assert "openenv-core>=0.2.3" in project["dependencies"]
-    assert project["scripts"]["server"] == "app.main:main"
+    assert project["scripts"]["server"] == "server.app:main"
+
+
+def test_server_wrapper_exists_for_validator() -> None:
+    server_app_path = Path("server/app.py")
+
+    assert server_app_path.exists()
+    assert "from app.main import app, main" in server_app_path.read_text()
+
+
+def test_uv_lock_exists_for_validator() -> None:
+    assert Path("uv.lock").exists()
