@@ -1,0 +1,66 @@
+name: schema-evolution-env
+version: "1.0.0"
+author: GeekyRiolu
+description: >
+  An agent must safely evolve a live SQLite database schema to meet a migration
+  goal. Actions include inspecting schemas, sampling data, running SQL migrations,
+  validating constraints, rolling back to the seeded state, and submitting a
+  final answer. Rewards are partial and continuous (0.0–1.0).
+tags:
+  - openenv
+  - database
+  - sql
+  - schema-migration
+endpoint: https://geekyriolu-schema-evolution-env.hf.space
+tasks:
+  - id: task1_add_column
+    name: Add column with default
+    difficulty: easy
+  - id: task2_split_table
+    name: Split table and repair foreign keys
+    difficulty: medium
+  - id: task3_type_change
+    name: Zero-downtime column type migration
+    difficulty: hard
+action_space:
+  type: object
+  properties:
+    type:
+      type: string
+      enum:
+        - inspect_schema
+        - sample_data
+        - run_migration
+        - validate_constraints
+        - rollback
+        - submit_final
+    params:
+      type: object
+  required: [type]
+observation_space:
+  type: object
+  properties:
+    task_id:
+      type: string
+    step:
+      type: integer
+    schema:
+      type: object
+    last_action_result:
+      type: string
+      nullable: true
+    cumulative_reward:
+      type: number
+    done:
+      type: boolean
+    goal:
+      type: string
+  required:
+    - task_id
+    - step
+    - schema
+    - cumulative_reward
+    - done
+    - goal
+max_steps: 20
+reward_range: [0.0, 1.0]
