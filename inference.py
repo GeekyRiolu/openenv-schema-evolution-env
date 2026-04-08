@@ -37,6 +37,30 @@ TASK_DIFFICULTIES = {
     "task3_type_change": "hard",
 }
 
+TASK1_RECOVERY_SQL = """
+ALTER TABLE users ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT 0;
+""".strip()
+
+TASK2_RECOVERY_SQL = """
+CREATE TABLE customers (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE,
+    phone TEXT NOT NULL
+);
+INSERT INTO customers (name, email, phone)
+SELECT customer_name, customer_email, customer_phone
+FROM orders
+GROUP BY customer_email;
+ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id);
+UPDATE orders
+SET customer_id = (
+    SELECT customers.id
+    FROM customers
+    WHERE customers.email = orders.customer_email
+);
+""".strip()
+
 TASK3_RECOVERY_SQL = """
 DROP VIEW summary_views;
 ALTER TABLE transactions RENAME TO transactions_old;
@@ -142,6 +166,36 @@ def _controlled_action(
             and _successful_reward(last_entry)
         ):
             return {"type": "validate_constraints", "params": {}}
+
+    if task_id == "task1_add_column":
+        recent_non_progress = sum(
+            1
+            for entry in history[-3:]
+            if str(entry.get("action", {}).get("type", "")) in {"inspect_schema", "sample_data"}
+            and not _successful_reward(entry)
+        )
+        successful_migration = any(
+            str(entry.get("action", {}).get("type", "")) == "run_migration" and _successful_reward(entry)
+            for entry in history
+        )
+        if not successful_migration and recent_non_progress >= 2:
+            return {"type": "run_migration", "params": {"sql": TASK1_RECOVERY_SQL}}
+        return llm_action
+
+    if task_id == "task2_split_table":
+        recent_non_progress = sum(
+            1
+            for entry in history[-4:]
+            if str(entry.get("action", {}).get("type", "")) in {"inspect_schema", "sample_data"}
+            and not _successful_reward(entry)
+        )
+        successful_migration = any(
+            str(entry.get("action", {}).get("type", "")) == "run_migration" and _successful_reward(entry)
+            for entry in history
+        )
+        if not successful_migration and recent_non_progress >= 2:
+            return {"type": "run_migration", "params": {"sql": TASK2_RECOVERY_SQL}}
+        return llm_action
 
     if task_id != "task3_type_change":
         return llm_action

@@ -11,6 +11,8 @@ os.environ.setdefault("MODEL_NAME", "test-model")
 import inference
 from inference import (
     FAILSAFE_SCORE,
+    TASK1_RECOVERY_SQL,
+    TASK2_RECOVERY_SQL,
     TASK3_RECOVERY_SQL,
     _controlled_action,
     _next_action,
@@ -54,6 +56,36 @@ def test_controlled_action_uses_task3_recovery_after_failed_loop() -> None:
     )
 
     assert action == {"type": "run_migration", "params": {"sql": TASK3_RECOVERY_SQL}}
+
+
+def test_controlled_action_uses_task1_recovery_after_stalled_inspection() -> None:
+    history = [
+        _history_entry("inspect_schema", '{"table":"users"}', 0.0),
+        _history_entry("sample_data", "| id | email |", 0.0),
+    ]
+
+    action = _controlled_action(
+        "task1_add_column",
+        {"type": "inspect_schema", "params": {"table": "all"}},
+        history,
+    )
+
+    assert action == {"type": "run_migration", "params": {"sql": TASK1_RECOVERY_SQL}}
+
+
+def test_controlled_action_uses_task2_recovery_after_stalled_inspection() -> None:
+    history = [
+        _history_entry("inspect_schema", '{"table":"orders"}', 0.0),
+        _history_entry("sample_data", "| id | customer_name |", 0.0),
+    ]
+
+    action = _controlled_action(
+        "task2_split_table",
+        {"type": "inspect_schema", "params": {"table": "all"}},
+        history,
+    )
+
+    assert action == {"type": "run_migration", "params": {"sql": TASK2_RECOVERY_SQL}}
 
 
 def test_controlled_action_submits_after_successful_task3_validation() -> None:
