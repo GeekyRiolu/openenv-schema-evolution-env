@@ -9,8 +9,16 @@ from app.models import Action, ColumnInfo, Observation, SchemaInfo, StepResult
 from app.tasks import TASKS, TaskDefinition
 
 
+_REWARD_EPSILON = 1e-6
+
+
 def _clamp_reward(value: float) -> float:
-    return max(0.0, min(1.0, round(value, 4)))
+    rounded = round(value, 4)
+    if rounded <= 0.0:
+        return 0.0
+    if rounded >= 1.0:
+        return 1.0 - _REWARD_EPSILON
+    return rounded
 
 
 class SchemaEvolutionEnv:

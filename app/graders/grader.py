@@ -11,8 +11,16 @@ from app.tasks.task3_type_change import (
 )
 
 
+_REWARD_EPSILON = 1e-6
+
+
 def _clamp_reward(value: float) -> float:
-    return max(0.0, min(1.0, round(value, 4)))
+    rounded = round(value, 4)
+    if rounded <= 0.0:
+        return _REWARD_EPSILON
+    if rounded >= 1.0:
+        return 1.0 - _REWARD_EPSILON
+    return rounded
 
 
 class Grader:

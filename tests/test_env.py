@@ -123,7 +123,7 @@ def test_full_task1_episode_optimal_solution() -> None:
     result = env.step(Action(type="submit_final", params={}))
 
     assert result.done
-    assert result.reward == 1.0
+    assert 0.9 < result.reward < 1.0
     assert result.info["passed"] is True
 
 
@@ -136,7 +136,7 @@ def test_full_task2_episode() -> None:
     result = env.step(Action(type="submit_final", params={}))
 
     assert result.done
-    assert result.reward == 1.0
+    assert 0.9 < result.reward < 1.0
     assert result.info["breakdown"]["deduplicated_customers"] == 0.2
     assert result.info["breakdown"]["customer_links_complete"] == 0.2
 
@@ -150,7 +150,7 @@ def test_full_task3_episode() -> None:
     result = env.step(Action(type="submit_final", params={}))
 
     assert result.done
-    assert result.reward == 1.0
+    assert 0.9 < result.reward < 1.0
     assert result.info["breakdown"]["expected_sum"] == 0.2
 
 
