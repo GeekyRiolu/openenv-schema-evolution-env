@@ -11,7 +11,7 @@ API_BASE_URL = os.getenv("API_BASE_URL", "<your-api-base-url>")
 MODEL_NAME = os.getenv("MODEL_NAME", "<your-action-model>")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
-ENV_URL = os.getenv("ENV_URL", "http://localhost:8000")
+ENV_URL = os.getenv("ENV_URL", "http://127.0.0.1:7860")
 
 SYSTEM_PROMPT = """
 You are a database migration expert. You are given a running SQLite database and a migration goal.
@@ -178,7 +178,11 @@ def _next_action(
 
 
 def run_episode(task_id: str) -> float:
-    reset_payload = _post_json("/reset", {"task_id": task_id})
+    try:
+        reset_payload = _post_json("/reset", {"task_id": task_id})
+    except requests.RequestException:
+        log_end(task_id, 0.0, 0)
+        return 0.0
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
@@ -196,38 +200,42 @@ def run_episode(task_id: str) -> float:
     steps = 0
     history: list[dict[str, Any]] = []
 
-    while True:
-        action = _next_action(task_id, messages, history, _llm_action)
-        step_result = _post_json("/step", {"action": action})
-        observation = step_result["observation"]
-        steps = int(observation["step"])
-        final_reward = float(observation["cumulative_reward"])
-        log_step(steps, str(action["type"]), float(step_result["reward"]), bool(step_result["done"]))
-        history.append(
-            {
-                "action": action,
-                "observation": observation,
-                "reward": float(step_result["reward"]),
-            }
-        )
+    try:
+        while True:
+            action = _next_action(task_id, messages, history, _llm_action)
+            step_result = _post_json("/step", {"action": action})
+            observation = step_result["observation"]
+            steps = int(observation["step"])
+            final_reward = float(observation["cumulative_reward"])
+            log_step(steps, str(action["type"]), float(step_result["reward"]), bool(step_result["done"]))
+            history.append(
+                {
+                    "action": action,
+                    "observation": observation,
+                    "reward": float(step_result["reward"]),
+                }
+            )
 
-        messages.append({"role": "assistant", "content": json.dumps(action)})
-        messages.append(
-            {
-                "role": "user",
-                "content": json.dumps(
-                    {
-                        "last_action_result": observation["last_action_result"],
-                        "schema": observation["schema"],
-                        "cumulative_reward": observation["cumulative_reward"],
-                        "done": observation["done"],
-                    }
-                ),
-            }
-        )
+            messages.append({"role": "assistant", "content": json.dumps(action)})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": json.dumps(
+                        {
+                            "last_action_result": observation["last_action_result"],
+                            "schema": observation["schema"],
+                            "cumulative_reward": observation["cumulative_reward"],
+                            "done": observation["done"],
+                        }
+                    ),
+                }
+            )
 
-        if step_result["done"]:
-            break
+            if step_result["done"]:
+                break
+    except requests.RequestException:
+        log_end(task_id, 0.0, steps)
+        return 0.0
 
     log_end(task_id, final_reward, steps)
     return final_reward

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import os
+import requests
 from typing import Any
 
 os.environ.setdefault("HF_TOKEN", "test-token")
 os.environ.setdefault("API_BASE_URL", "https://example.com/v1")
 os.environ.setdefault("MODEL_NAME", "test-model")
 
-from inference import TASK3_RECOVERY_SQL, _controlled_action, _next_action
+import inference
+from inference import TASK3_RECOVERY_SQL, _controlled_action, _next_action, run_episode
 
 
 def _history_entry(
@@ -154,3 +156,12 @@ def test_controlled_action_breaks_task3_inspect_loop_with_recovery_sql() -> None
     )
 
     assert action == {"type": "run_migration", "params": {"sql": TASK3_RECOVERY_SQL}}
+
+
+def test_run_episode_handles_reset_connection_error(monkeypatch: Any) -> None:
+    def _raise_error(_path: str, _payload: dict[str, Any]) -> dict[str, Any]:
+        raise requests.RequestException("connection failed")
+
+    monkeypatch.setattr(inference, "_post_json", _raise_error)
+
+    assert run_episode("task1_add_column") == 0.0
