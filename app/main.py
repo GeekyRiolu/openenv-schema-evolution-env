@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
 
@@ -51,3 +52,7 @@ def step(body: StepRequest) -> StepResult:
 def state() -> Observation:
     with env_lock:
         return env.state()
+
+
+def main() -> None:
+    uvicorn.run("app.main:app", host="0.0.0.0", port=7860)

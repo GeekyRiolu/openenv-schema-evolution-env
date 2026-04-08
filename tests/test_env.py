@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import tomllib
+from pathlib import Path
+
 from app.environment import SchemaEvolutionEnv
 from app.graders.grader import Grader
 from app.main import health, index, list_tasks, reset, state, step
@@ -250,3 +253,21 @@ def test_seeded_task_shapes_match_expected_counts() -> None:
     assert transaction_count == TRANSACTION_ROW_COUNT
     assert audit_log_count == AUDIT_LOG_ROW_COUNT
     assert float(total_amount) == EXPECTED_SUM
+
+
+def test_main_entrypoint_exists_for_validator() -> None:
+    from app.main import main
+
+    assert callable(main)
+
+
+def test_pyproject_declares_server_entrypoint_and_openenv_dependency() -> None:
+    pyproject_path = Path("pyproject.toml")
+
+    assert pyproject_path.exists()
+
+    data = tomllib.loads(pyproject_path.read_text())
+    project = data["project"]
+
+    assert "openenv-core>=0.2.3" in project["dependencies"]
+    assert project["scripts"]["server"] == "app.main:main"
