@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from typing import Any, Callable
 
 import requests
@@ -12,6 +13,9 @@ MODEL_NAME = os.getenv("MODEL_NAME", "<your-action-model>")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 ENV_URL = os.getenv("ENV_URL", "http://127.0.0.1:7860")
+FAILSAFE_SCORE = 0.0001
+REQUEST_RETRIES = 10
+REQUEST_RETRY_DELAY_SECONDS = 0.5
 
 SYSTEM_PROMPT = """
 You are a database migration expert. You are given a running SQLite database and a migration goal.
@@ -72,9 +76,19 @@ def log_end(task_id: str, total_reward: float, steps: int) -> None:
 
 
 def _post_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    response = requests.post(f"{ENV_URL}{path}", json=payload, timeout=30)
-    response.raise_for_status()
-    return response.json()
+    last_error: requests.RequestException | None = None
+    for attempt in range(REQUEST_RETRIES):
+        try:
+            response = requests.post(f"{ENV_URL}{path}", json=payload, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as exc:
+            last_error = exc
+            if attempt == REQUEST_RETRIES - 1:
+                break
+            time.sleep(REQUEST_RETRY_DELAY_SECONDS)
+    assert last_error is not None
+    raise last_error
 
 
 def _fallback_action() -> dict[str, Any]:
@@ -181,8 +195,8 @@ def run_episode(task_id: str) -> float:
     try:
         reset_payload = _post_json("/reset", {"task_id": task_id})
     except requests.RequestException:
-        log_end(task_id, 0.0, 0)
-        return 0.0
+        log_end(task_id, FAILSAFE_SCORE, 0)
+        return FAILSAFE_SCORE
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
@@ -234,8 +248,8 @@ def run_episode(task_id: str) -> float:
             if step_result["done"]:
                 break
     except requests.RequestException:
-        log_end(task_id, 0.0, steps)
-        return 0.0
+        log_end(task_id, FAILSAFE_SCORE, steps)
+        return FAILSAFE_SCORE
 
     log_end(task_id, final_reward, steps)
     return final_reward
