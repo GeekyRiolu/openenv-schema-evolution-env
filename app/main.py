@@ -30,10 +30,11 @@ def list_tasks() -> list[TaskSpec]:
 
 
 @app.post("/reset")
-def reset(body: ResetRequest) -> Observation:
+def reset(body: ResetRequest | None = None) -> Observation:
     try:
         with env_lock:
-            return env.reset(body.task_id)
+            task_id = body.task_id if body is not None else ResetRequest().task_id
+            return env.reset(task_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

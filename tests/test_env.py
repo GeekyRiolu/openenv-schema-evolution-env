@@ -205,6 +205,7 @@ def test_rollback_restores_clean_state() -> None:
 def test_api_endpoints_return_expected_shapes() -> None:
     index_response = index()
     health_response = health()
+    default_reset_response = reset()
     reset_response = reset(ResetRequest(task_id="task1_add_column"))
     tasks_response = list_tasks()
     step_response = step(
@@ -215,6 +216,7 @@ def test_api_endpoints_return_expected_shapes() -> None:
     assert str(index_response.headers["location"]) == "/docs"
     assert index_response.status_code == 307
     assert health_response == {"status": "ok"}
+    assert default_reset_response.task_id == "task1_add_column"
     assert reset_response.task_id == "task1_add_column"
     assert len(tasks_response) == 3
     assert step_response.observation.task_id == "task1_add_column"
