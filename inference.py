@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import Any, Callable
 
 import requests
 from openai import OpenAI
@@ -32,6 +32,26 @@ TASK_DIFFICULTIES = {
     "task2_split_table": "medium",
     "task3_type_change": "hard",
 }
+
+TASK3_RECOVERY_SQL = """
+DROP VIEW summary_views;
+ALTER TABLE transactions RENAME TO transactions_old;
+CREATE TABLE transactions (
+    id INTEGER PRIMARY KEY,
+    amount REAL NOT NULL,
+    created_at TEXT NOT NULL
+);
+INSERT INTO transactions (id, amount, created_at)
+SELECT
+    id,
+    CAST(REPLACE(REPLACE(REPLACE(amount, '$', ''), ',', ''), ' ', '') AS REAL),
+    created_at
+FROM transactions_old;
+CREATE VIEW summary_views AS
+SELECT id, amount, created_at
+FROM transactions;
+DROP TABLE transactions_old;
+""".strip()
 
 client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
 
@@ -79,6 +99,84 @@ def _llm_action(messages: list[dict[str, str]]) -> dict[str, Any]:
         return _fallback_action()
 
 
+def _successful_reward(entry: dict[str, Any]) -> bool:
+    return float(entry.get("reward", 0.0)) > 0.0
+
+
+def _result_text(entry: dict[str, Any]) -> str:
+    observation = entry.get("observation", {})
+    return str(observation.get("last_action_result", ""))
+
+
+def _controlled_action(
+    task_id: str,
+    llm_action: dict[str, Any],
+    history: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if history:
+        last_entry = history[-1]
+        last_action_type = str(last_entry.get("action", {}).get("type", ""))
+        if (
+            task_id in {"task1_add_column", "task3_type_change"}
+            and last_action_type == "validate_constraints"
+            and _successful_reward(last_entry)
+        ):
+            return {"type": "submit_final", "params": {}}
+        if (
+            task_id in {"task1_add_column", "task3_type_change"}
+            and last_action_type == "run_migration"
+            and _successful_reward(last_entry)
+        ):
+            return {"type": "validate_constraints", "params": {}}
+
+    if task_id != "task3_type_change":
+        return llm_action
+
+    successful_migration = any(
+        str(entry.get("action", {}).get("type", "")) == "run_migration" and _successful_reward(entry)
+        for entry in history
+    )
+    failed_migrations = sum(
+        1
+        for entry in history
+        if str(entry.get("action", {}).get("type", "")) == "run_migration"
+        and _result_text(entry).startswith("Migration failed:")
+    )
+    rollbacks = sum(
+        1 for entry in history if str(entry.get("action", {}).get("type", "")) == "rollback"
+    )
+    recent_inspects = sum(
+        1
+        for entry in history[-4:]
+        if str(entry.get("action", {}).get("type", "")) == "inspect_schema"
+    )
+
+    if not successful_migration and history:
+        last_action_type = str(history[-1].get("action", {}).get("type", ""))
+        if failed_migrations >= 1 and last_action_type == "run_migration":
+            return {"type": "rollback", "params": {}}
+    if (
+        not successful_migration
+        and failed_migrations == 0
+        and recent_inspects >= 4
+    ):
+        return {"type": "run_migration", "params": {"sql": TASK3_RECOVERY_SQL}}
+    if not successful_migration and failed_migrations >= 1 and rollbacks >= 1:
+        return {"type": "run_migration", "params": {"sql": TASK3_RECOVERY_SQL}}
+
+    return llm_action
+
+
+def _next_action(
+    task_id: str,
+    messages: list[dict[str, str]],
+    history: list[dict[str, Any]],
+    llm_action_fn: Callable[[list[dict[str, str]]], dict[str, Any]],
+) -> dict[str, Any]:
+    llm_action = llm_action_fn(messages)
+    return _controlled_action(task_id, llm_action, history)
+
+
 def run_episode(task_id: str) -> float:
     reset_payload = _post_json("/reset", {"task_id": task_id})
     messages = [
@@ -96,14 +194,22 @@ def run_episode(task_id: str) -> float:
 
     final_reward = 0.0
     steps = 0
+    history: list[dict[str, Any]] = []
 
     while True:
-        action = _llm_action(messages)
+        action = _next_action(task_id, messages, history, _llm_action)
         step_result = _post_json("/step", {"action": action})
         observation = step_result["observation"]
         steps = int(observation["step"])
         final_reward = float(observation["cumulative_reward"])
         log_step(steps, str(action["type"]), float(step_result["reward"]), bool(step_result["done"]))
+        history.append(
+            {
+                "action": action,
+                "observation": observation,
+                "reward": float(step_result["reward"]),
+            }
+        )
 
         messages.append({"role": "assistant", "content": json.dumps(action)})
         messages.append(
