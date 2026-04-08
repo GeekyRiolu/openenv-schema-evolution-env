@@ -9,7 +9,7 @@ from app.models import Action, ColumnInfo, Observation, SchemaInfo, StepResult
 from app.tasks import TASKS, TaskDefinition
 
 
-_REWARD_EPSILON = 1e-4
+_MAX_FINAL_SCORE = 0.9
 
 
 def _clamp_reward(value: float) -> float:
@@ -17,7 +17,7 @@ def _clamp_reward(value: float) -> float:
     if rounded <= 0.0:
         return 0.0
     if rounded >= 1.0:
-        return 1.0 - _REWARD_EPSILON
+        return _MAX_FINAL_SCORE
     return rounded
 
 

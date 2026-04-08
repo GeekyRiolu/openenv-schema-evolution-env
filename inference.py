@@ -13,7 +13,7 @@ MODEL_NAME = os.getenv("MODEL_NAME", "<your-action-model>")
 HF_TOKEN = os.getenv("HF_TOKEN")
 LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
 ENV_URL = os.getenv("ENV_URL", "http://127.0.0.1:7860")
-FAILSAFE_SCORE = 0.0001
+FAILSAFE_SCORE = 0.1
 REQUEST_RETRIES = 10
 REQUEST_RETRY_DELAY_SECONDS = 0.5
 
@@ -96,7 +96,7 @@ def log_step(step: int, action_type: str, reward: float, done: bool) -> None:
 
 
 def log_end(task_id: str, total_reward: float, steps: int) -> None:
-    print(f"[END] task_id={task_id} total_reward={total_reward:.6f} steps={steps}", flush=True)
+    print(f"[END] task_id={task_id} total_reward={total_reward:.1f} steps={steps}", flush=True)
 
 
 def _post_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:

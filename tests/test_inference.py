@@ -203,12 +203,13 @@ def test_run_episode_handles_reset_connection_error(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(inference, "_post_json", _raise_error)
 
+    assert FAILSAFE_SCORE == 0.1
     assert run_episode("task1_add_column") == FAILSAFE_SCORE
 
 
-def test_log_end_keeps_subunit_reward_visible(capsys: Any) -> None:
-    log_end("task1_add_column", 0.9999, 3)
+def test_log_end_keeps_single_decimal_safe_band(capsys: Any) -> None:
+    log_end("task1_add_column", 0.9, 3)
 
     captured = capsys.readouterr()
 
-    assert "total_reward=0.999900" in captured.out
+    assert "total_reward=0.9" in captured.out
