@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import RedirectResponse
 
 from app.environment import SchemaEvolutionEnv
 from app.models import Observation, ResetRequest, StepRequest, StepResult, TaskSpec
@@ -11,6 +12,11 @@ from app.tasks import TASKS
 app = FastAPI(title="SchemaEvolutionEnv", version="1.0.0")
 env = SchemaEvolutionEnv()
 env_lock = threading.Lock()
+
+
+@app.get("/", include_in_schema=False)
+def index() -> RedirectResponse:
+    return RedirectResponse(url="/docs")
 
 
 @app.get("/health")

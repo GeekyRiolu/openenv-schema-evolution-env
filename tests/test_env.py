@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from app.environment import SchemaEvolutionEnv
 from app.graders.grader import Grader
-from app.main import health, list_tasks, reset, state, step
+from app.main import health, index, list_tasks, reset, state, step
 from app.models import Action
 from app.models import ResetRequest, StepRequest
 from app.tasks.task1_add_column import EXPECTED_ROW_COUNT
@@ -203,6 +203,7 @@ def test_rollback_restores_clean_state() -> None:
 
 
 def test_api_endpoints_return_expected_shapes() -> None:
+    index_response = index()
     health_response = health()
     reset_response = reset(ResetRequest(task_id="task1_add_column"))
     tasks_response = list_tasks()
@@ -211,6 +212,8 @@ def test_api_endpoints_return_expected_shapes() -> None:
     )
     state_response = state()
 
+    assert str(index_response.headers["location"]) == "/docs"
+    assert index_response.status_code == 307
     assert health_response == {"status": "ok"}
     assert reset_response.task_id == "task1_add_column"
     assert len(tasks_response) == 3
