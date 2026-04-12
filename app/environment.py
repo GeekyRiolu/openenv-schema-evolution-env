@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from typing import Any
-
+from app.reward_bounds import safe_reward
 from app.graders.grader import Grader
 from app.models import Action, ColumnInfo, Observation, SchemaInfo, StepResult
 from app.reward_bounds import clamp_open_interval
@@ -11,7 +11,7 @@ from app.tasks import TASKS, TaskDefinition
 
 
 def _clamp_reward(value: float) -> float:
-    return clamp_open_interval(value)
+    return safe_reward(value)
 
 
 class SchemaEvolutionEnv:

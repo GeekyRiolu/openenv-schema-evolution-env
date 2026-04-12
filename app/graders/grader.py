@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from typing import Any
-
+from app.reward_bounds import safe_reward
 from app.reward_bounds import MAX_REPORTED_REWARD, MIN_REPORTED_REWARD, clamp_open_interval
 from app.tasks.task1_add_column import EXPECTED_ROW_COUNT
 from app.tasks.task3_type_change import (
@@ -17,32 +17,23 @@ def _no_credit() -> float:
 
 
 def _clamp_total(value: float) -> float:
-    rounded = round(value, 4)
-    if rounded <= 0.0:
-        return MIN_REPORTED_REWARD * 10
-    result = clamp_open_interval(rounded)
-    # Prevent hitting MAX_REPORTED_REWARD exactly after scaling
-    if result >= MAX_REPORTED_REWARD:
-        return round(MAX_REPORTED_REWARD - 0.001, 4)  # 0.899
-    return result
-
+    return safe_reward(value)
 
 class Grader:
-    def grade(self, conn: sqlite3.Connection, task_id: str) -> dict[str, Any]:
-        try:
-            if task_id == "task1_add_column":
-                return self._grade_task1(conn)
-            if task_id == "task2_split_table":
-                return self._grade_task2(conn)
-            if task_id == "task3_type_change":
-                return self._grade_task3(conn)
-            return self._build_result({}, "Unknown task.", False)
-        except Exception as exc:
-            return self._build_result(
-                {},
-                f"Grader failed safely: {exc}",
-                False,
-            )
+    def _build_result(self, breakdown, message, passed):
+        raw_sum = sum(breakdown.values())
+        if raw_sum >= 1.0 - 1e-9:
+            scale = 0.85 / raw_sum  # scale to 0.85, well away from any boundary
+            breakdown = {k: safe_reward(round(v * scale, 4)) for k, v in breakdown.items()}
+            raw_sum = sum(breakdown.values())
+        breakdown = {k: safe_reward(v) for k, v in breakdown.items()}
+        total_reward = safe_reward(sum(breakdown.values()))
+        return {
+            "total_reward": total_reward,
+            "breakdown": breakdown,
+            "passed": passed and total_reward >= 0.8,
+            "message": message,
+        }
 
     def _build_result(
         self,
