@@ -138,8 +138,8 @@ def test_full_task2_episode() -> None:
 
     assert result.done
     assert result.reward == 0.9
-    assert result.info["breakdown"]["deduplicated_customers"] == 0.2
-    assert result.info["breakdown"]["customer_links_complete"] == 0.2
+    assert result.info["breakdown"]["deduplicated_customers"] == 0.18
+    assert result.info["breakdown"]["customer_links_complete"] == 0.18
 
 
 def test_full_task3_episode() -> None:
@@ -152,7 +152,7 @@ def test_full_task3_episode() -> None:
 
     assert result.done
     assert result.reward == 0.9
-    assert result.info["breakdown"]["expected_sum"] == 0.2
+    assert result.info["breakdown"]["expected_sum"] == 0.18
 
 
 def test_grader_deterministic() -> None:
@@ -165,6 +165,23 @@ def test_grader_deterministic() -> None:
     second_grade = grader.grade(env.conn, "task1_add_column")
 
     assert first_grade == second_grade
+
+
+def test_submit_final_grade_never_emits_0_or_1() -> None:
+    env = SchemaEvolutionEnv()
+    env.reset("task1_add_column")
+    env.step(
+        Action(
+            type="run_migration",
+            params={"sql": "ALTER TABLE users ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT 0;"},
+        )
+    )
+    result = env.step(Action(type="submit_final", params={}))
+    info = result.info
+    assert 0.0 < float(info["total_reward"]) < 1.0
+    for part in info["breakdown"].values():
+        assert 0.0 < float(part) < 1.0
+    assert 0.0 < float(result.reward) < 1.0
 
 
 def test_reward_range_strictly_inside_unit_interval() -> None:

@@ -63,4 +63,5 @@ observation_space:
     - done
     - goal
 max_steps: 20
-reward_range: [0.001, 0.9]
+# Open interval (0, 1): validators reject exactly 0.0 or 1.0.
+reward_range: [0.001, 0.9999]

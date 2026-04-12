@@ -1,15 +1,22 @@
-"""OpenEnv task validation requires every reported score to lie strictly in (0, 1)."""
+"""OpenEnv task validation: every emitted score must satisfy 0 < x < 1 (never 0.0 or 1.0)."""
 
 from __future__ import annotations
 
 MIN_REPORTED_REWARD = 0.001
 MAX_REPORTED_REWARD = 0.9
+# Keep strictly below 1.0 even after round(..., 4) (e.g. round(0.99995, 4) == 1.0).
+_INTERIOR_CEILING = 0.9999
 
 
 def clamp_open_interval(value: float) -> float:
-    rounded = round(value, 4)
+    try:
+        x = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return MIN_REPORTED_REWARD
+    rounded = round(x, 4)
     if rounded <= 0.0:
         return MIN_REPORTED_REWARD
     if rounded >= 1.0:
         return MAX_REPORTED_REWARD
-    return rounded
+    bounded = min(max(rounded, MIN_REPORTED_REWARD), _INTERIOR_CEILING)
+    return round(bounded, 4)

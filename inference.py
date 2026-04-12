@@ -96,7 +96,8 @@ def log_step(step: int, action_type: str, reward: float, done: bool) -> None:
 
 
 def log_end(task_id: str, total_reward: float, steps: int) -> None:
-    print(f"[END] task_id={task_id} total_reward={total_reward:.1f} steps={steps}", flush=True)
+    # Avoid .1f: small valid rewards (e.g. 0.001) round to "0.0" and fail task score checks.
+    print(f"[END] task_id={task_id} total_reward={total_reward:.6f} steps={steps}", flush=True)
 
 
 def _post_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:

@@ -212,4 +212,4 @@ def test_log_end_keeps_single_decimal_safe_band(capsys: Any) -> None:
 
     captured = capsys.readouterr()
 
-    assert "total_reward=0.9" in captured.out
+    assert "total_reward=0.900000" in captured.out

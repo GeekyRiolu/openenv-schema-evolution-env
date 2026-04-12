@@ -46,7 +46,16 @@ class Grader:
         message: str,
         passed: bool,
     ) -> dict[str, Any]:
-        total_reward = _clamp_total(sum(breakdown.values()))
+        # Validators require every numeric score strictly in (0, 1). A perfect rubric sums to
+        # 1.0 before scaling; scale down so breakdown + total never hit 1.0.
+        raw_sum = sum(breakdown.values())
+        if raw_sum >= 1.0 - 1e-9:
+            scale = MAX_REPORTED_REWARD / raw_sum
+            breakdown = {k: round(v * scale, 4) for k, v in breakdown.items()}
+            raw_sum = sum(breakdown.values())
+        breakdown = {k: clamp_open_interval(v) for k, v in breakdown.items()}
+        raw_sum = sum(breakdown.values())
+        total_reward = _clamp_total(raw_sum)
         return {
             "total_reward": total_reward,
             "breakdown": breakdown,
