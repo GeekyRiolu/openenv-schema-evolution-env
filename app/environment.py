@@ -263,12 +263,12 @@ class SchemaEvolutionEnv:
 
         grade = self._grader.grade(self.conn, self.task_id)
         self.done = True
-        self.cumulative_reward = _clamp_reward(float(grade["total_reward"]))
+        self.cumulative_reward = _clamp_reward(float(grade["total_reward"]))  # already there ✓
         self._last_action_result = str(grade["message"])
         observation = self._build_observation()
         return StepResult(
             observation=observation,
-            reward=self.cumulative_reward,
+            reward=_clamp_reward(self.cumulative_reward),  # ← ADD THIS WRAP
             done=True,
             info=grade,
         )
