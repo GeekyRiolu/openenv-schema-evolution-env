@@ -1,6 +1,5 @@
 ---
 title: Schema Evolution Environment
-emoji: "🗄️"
 colorFrom: blue
 colorTo: green
 sdk: docker
