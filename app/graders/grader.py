@@ -21,9 +21,9 @@ def _clamp_total(value: float) -> float:
     if rounded <= 0.0:
         return MIN_REPORTED_REWARD * 10
     result = clamp_open_interval(rounded)
-    # Final safety: ensure we never return exactly 0.0 or 1.0
-    if result <= 0.0 or result >= 1.0:
-        return MAX_REPORTED_REWARD
+    # Prevent hitting MAX_REPORTED_REWARD exactly after scaling
+    if result >= MAX_REPORTED_REWARD:
+        return round(MAX_REPORTED_REWARD - 0.001, 4)  # 0.899
     return result
 
 
