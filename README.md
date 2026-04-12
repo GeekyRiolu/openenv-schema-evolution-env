@@ -108,10 +108,10 @@ Each `POST /step` response contains:
 
 ## Reward design
 
-- `inspect_schema` and `sample_data` return `reward=0.0` (observation only)
-- `run_migration` returns `reward=0.05` on success, `0.0` on failure
-- `validate_constraints` returns `reward=0.05` on pass, `0.0` on fail
-- `rollback` returns `reward=0.0`
+- `inspect_schema` and `sample_data` return `reward=0` (observation only)
+- `run_migration` returns `reward=0.05` on success, `0` on failure
+- `validate_constraints` returns `reward=0.05` on pass, `0` on fail
+- `rollback` returns `reward=0`
 - `submit_final` triggers the grader and returns a partial-credit score
 
 All rewards are clamped to the open interval `(0, 1)` — never exactly `0.0` or `1.0`. Max episode length is 20 steps.
@@ -194,11 +194,11 @@ The inference script emits structured stdout logs consumed by the OpenEnv valida
 
 ```
 [START] task=task1_add_column env=schema-evolution-env model=gpt-4o
-[STEP] step=1 action=inspect_schema reward=0.000000 done=false error=None
+[STEP] step=1 action=inspect_schema reward=0 done=false error=None
 [STEP] step=2 action=run_migration reward=0.050000 done=false error=None
 [STEP] step=3 action=validate_constraints reward=0.050000 done=false error=None
 [STEP] step=4 action=submit_final reward=0.850000 done=true error=None
-[END] success=true steps=4 score=0.950000 rewards=[0.0, 0.05, 0.05, 0.85]
+[END] success=true steps=4 score=0.950000 rewards=[0, 0.05, 0.05, 0.85]
 ```
 
 ---
