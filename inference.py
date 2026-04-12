@@ -16,6 +16,9 @@ ENV_URL = os.getenv("ENV_URL", "http://127.0.0.1:7860")
 FAILSAFE_SCORE = 0.1
 REQUEST_RETRIES = 10
 REQUEST_RETRY_DELAY_SECONDS = 0.5
+BENCHMARK = "schema-evolution-env"
+MAX_TOTAL_REWARD = 1.0
+SUCCESS_SCORE_THRESHOLD = 0.5
 
 SYSTEM_PROMPT = """
 You are a database migration expert. You are given a running SQLite database and a migration goal.
@@ -84,20 +87,22 @@ DROP TABLE transactions_old;
 client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
 
 
-def log_start(task_id: str, difficulty: str) -> None:
-    print(f"[START] task_id={task_id} difficulty={difficulty}", flush=True)
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
 
 
-def log_step(step: int, action_type: str, reward: float, done: bool) -> None:
+def log_step(step: int, action: str, reward: float, done: bool, error: Any = None) -> None:
     print(
-        f"[STEP] step={step} action={action_type} reward={reward:.6f} done={str(done).lower()}",
+        f"[STEP] step={step} action={action} reward={reward:.6f} done={str(done).lower()} error={error}",
         flush=True,
     )
 
 
-def log_end(task_id: str, total_reward: float, steps: int) -> None:
-    # Avoid .1f: small valid rewards (e.g. 0.001) round to "0.0" and fail task score checks.
-    print(f"[END] task_id={task_id} total_reward={total_reward:.6f} steps={steps}", flush=True)
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={score:.6f} rewards={rewards}",
+        flush=True,
+    )
 
 
 def _post_json(path: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -139,7 +144,6 @@ def _llm_action(messages: list[dict[str, str]]) -> dict[str, Any]:
 
 
 def _successful_reward(entry: dict[str, Any]) -> bool:
-    # Step rewards below ~0.04 are neutral / failure padding for OpenEnv (0, 1) validation.
     return float(entry.get("reward", 0.0)) >= 0.04
 
 
@@ -248,11 +252,17 @@ def _next_action(
 
 
 def run_episode(task_id: str) -> float:
+    log_start(task=task_id, env=BENCHMARK, model=MODEL_NAME)
+
+    rewards: list[float] = []
+    steps_taken = 0
+
     try:
         reset_payload = _post_json("/reset", {"task_id": task_id})
     except requests.RequestException:
-        log_end(task_id, FAILSAFE_SCORE, 0)
+        log_end(success=False, steps=0, score=FAILSAFE_SCORE, rewards=[])
         return FAILSAFE_SCORE
+
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
@@ -266,8 +276,6 @@ def run_episode(task_id: str) -> float:
         },
     ]
 
-    final_reward = 0.0
-    steps = 0
     history: list[dict[str, Any]] = []
 
     try:
@@ -275,14 +283,24 @@ def run_episode(task_id: str) -> float:
             action = _next_action(task_id, messages, history, _llm_action)
             step_result = _post_json("/step", {"action": action})
             observation = step_result["observation"]
-            steps = int(observation["step"])
-            final_reward = float(observation["cumulative_reward"])
-            log_step(steps, str(action["type"]), float(step_result["reward"]), bool(step_result["done"]))
+            steps_taken = int(observation["step"])
+            step_reward = float(step_result["reward"])
+            done = bool(step_result["done"])
+
+            rewards.append(step_reward)
+
+            log_step(
+                step=steps_taken,
+                action=str(action["type"]),
+                reward=step_reward,
+                done=done,
+            )
+
             history.append(
                 {
                     "action": action,
                     "observation": observation,
-                    "reward": float(step_result["reward"]),
+                    "reward": step_reward,
                 }
             )
 
@@ -301,14 +319,21 @@ def run_episode(task_id: str) -> float:
                 }
             )
 
-            if step_result["done"]:
+            if done:
                 break
-    except requests.RequestException:
-        log_end(task_id, FAILSAFE_SCORE, steps)
-        return FAILSAFE_SCORE
 
-    log_end(task_id, final_reward, steps)
-    return final_reward
+    except requests.RequestException:
+        score = sum(rewards) / MAX_TOTAL_REWARD if rewards else FAILSAFE_SCORE
+        score = min(max(score, 0.0), 1.0)
+        log_end(success=False, steps=steps_taken, score=score, rewards=rewards)
+        return score
+
+    score = sum(rewards) / MAX_TOTAL_REWARD if MAX_TOTAL_REWARD > 0 else 0.0
+    score = min(max(score, 0.0), 1.0)
+    success = score >= SUCCESS_SCORE_THRESHOLD
+
+    log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
+    return score
 
 
 def main() -> None:
@@ -316,7 +341,6 @@ def main() -> None:
         raise RuntimeError("HF_TOKEN must be set before running inference.py.")
 
     for task_id in ("task1_add_column", "task2_split_table", "task3_type_change"):
-        log_start(task_id, TASK_DIFFICULTIES[task_id])
         run_episode(task_id)
 
 
