@@ -5,7 +5,7 @@ description: >
   An agent must safely evolve a live SQLite database schema to meet a migration
   goal. Actions include inspecting schemas, sampling data, running SQL migrations,
   validating constraints, rolling back to the seeded state, and submitting a
-  final answer. Rewards are partial and continuous (0.0–1.0).
+  final answer. Rewards are partial and continuous, strictly between 0 and 1.
 tags:
   - openenv
   - database
@@ -63,4 +63,4 @@ observation_space:
     - done
     - goal
 max_steps: 20
-reward_range: [0.0, 1.0]
+reward_range: [0.001, 0.9]

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.environment import SchemaEvolutionEnv
 from app.graders.grader import Grader
+from app.reward_bounds import MIN_REPORTED_REWARD
 from app.main import health, index, list_tasks, reset, state, step
 from app.models import Action
 from app.models import ResetRequest, StepRequest
@@ -72,7 +73,7 @@ def test_reset_returns_clean_state() -> None:
 
     assert first_reset.task_id == "task1_add_column"
     assert second_reset.step == 0
-    assert second_reset.cumulative_reward == 0.0
+    assert second_reset.cumulative_reward == MIN_REPORTED_REWARD
     assert second_reset.last_action_result is None
     assert "is_verified" not in {
         column.name for column in second_reset.schema_info.tables["users"]
@@ -85,7 +86,7 @@ def test_step_inspect_schema() -> None:
 
     result = env.step(Action(type="inspect_schema", params={"table": "users"}))
 
-    assert result.reward == 0.0
+    assert result.reward == MIN_REPORTED_REWARD
     assert '"table": "users"' in result.observation.last_action_result
 
 
@@ -109,7 +110,7 @@ def test_step_run_migration_invalid_sql_no_crash() -> None:
         Action(type="run_migration", params={"sql": "ALTER TABLE missing_table ADD COLUMN broken TEXT;"})
     )
 
-    assert result.reward == 0.0
+    assert result.reward == MIN_REPORTED_REWARD
     assert "Migration failed" in result.observation.last_action_result
     assert not result.done
 
@@ -166,14 +167,14 @@ def test_grader_deterministic() -> None:
     assert first_grade == second_grade
 
 
-def test_reward_range_always_0_to_1() -> None:
+def test_reward_range_strictly_inside_unit_interval() -> None:
     env = SchemaEvolutionEnv()
     env.reset("task1_add_column")
 
     for _ in range(5):
         result = env.step(Action(type="validate_constraints", params={}))
-        assert 0.0 <= result.reward <= 1.0
-        assert 0.0 <= result.observation.cumulative_reward <= 1.0
+        assert MIN_REPORTED_REWARD <= result.reward < 1.0
+        assert MIN_REPORTED_REWARD <= result.observation.cumulative_reward < 1.0
 
 
 def test_max_steps_terminates_episode() -> None:
@@ -196,7 +197,7 @@ def test_rollback_restores_clean_state() -> None:
 
     rollback_result = env.step(Action(type="rollback", params={}))
 
-    assert rollback_result.reward == 0.0
+    assert rollback_result.reward == MIN_REPORTED_REWARD
     assert rollback_result.observation.last_action_result == "Database rolled back to initial state."
     assert "is_verified" not in {
         column.name for column in rollback_result.observation.schema_info.tables["users"]

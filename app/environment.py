@@ -6,19 +6,12 @@ from typing import Any
 
 from app.graders.grader import Grader
 from app.models import Action, ColumnInfo, Observation, SchemaInfo, StepResult
+from app.reward_bounds import clamp_open_interval
 from app.tasks import TASKS, TaskDefinition
 
 
-_MAX_FINAL_SCORE = 0.9
-
-
 def _clamp_reward(value: float) -> float:
-    rounded = round(value, 4)
-    if rounded <= 0.0:
-        return 0.0
-    if rounded >= 1.0:
-        return _MAX_FINAL_SCORE
-    return rounded
+    return clamp_open_interval(value)
 
 
 class SchemaEvolutionEnv:

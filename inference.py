@@ -138,7 +138,8 @@ def _llm_action(messages: list[dict[str, str]]) -> dict[str, Any]:
 
 
 def _successful_reward(entry: dict[str, Any]) -> bool:
-    return float(entry.get("reward", 0.0)) > 0.0
+    # Step rewards below ~0.04 are neutral / failure padding for OpenEnv (0, 1) validation.
+    return float(entry.get("reward", 0.0)) >= 0.04
 
 
 def _result_text(entry: dict[str, Any]) -> str:

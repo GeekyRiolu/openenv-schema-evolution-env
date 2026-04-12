@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from app.reward_bounds import MAX_REPORTED_REWARD, MIN_REPORTED_REWARD, clamp_open_interval
 from app.tasks.task1_add_column import EXPECTED_ROW_COUNT
 from app.tasks.task3_type_change import (
     AUDIT_LOG_ROW_COUNT,
@@ -11,17 +12,15 @@ from app.tasks.task3_type_change import (
 )
 
 
-_MIN_FINAL_SCORE = 0.1
-_MAX_FINAL_SCORE = 0.9
+def _no_credit() -> float:
+    return MIN_REPORTED_REWARD
 
 
-def _clamp_reward(value: float) -> float:
+def _clamp_total(value: float) -> float:
     rounded = round(value, 4)
     if rounded <= 0.0:
-        return _MIN_FINAL_SCORE
-    if rounded >= 1.0:
-        return _MAX_FINAL_SCORE
-    return rounded
+        return MIN_REPORTED_REWARD * 10
+    return clamp_open_interval(rounded)
 
 
 class Grader:
@@ -47,20 +46,20 @@ class Grader:
         message: str,
         passed: bool,
     ) -> dict[str, Any]:
-        total_reward = _clamp_reward(sum(breakdown.values()))
+        total_reward = _clamp_total(sum(breakdown.values()))
         return {
             "total_reward": total_reward,
             "breakdown": breakdown,
-            "passed": passed and total_reward >= _MAX_FINAL_SCORE,
+            "passed": passed and total_reward >= MAX_REPORTED_REWARD,
             "message": message,
         }
 
     def _grade_task1(self, conn: sqlite3.Connection) -> dict[str, Any]:
         breakdown = {
-            "column_exists_with_correct_type": 0.0,
-            "default_zero": 0.0,
-            "row_count_unchanged": 0.0,
-            "not_null_constraint": 0.0,
+            "column_exists_with_correct_type": _no_credit(),
+            "default_zero": _no_credit(),
+            "row_count_unchanged": _no_credit(),
+            "not_null_constraint": _no_credit(),
         }
 
         columns = conn.execute("PRAGMA table_info(users);").fetchall()
@@ -84,11 +83,11 @@ class Grader:
 
     def _grade_task2(self, conn: sqlite3.Connection) -> dict[str, Any]:
         breakdown = {
-            "customers_schema": 0.0,
-            "deduplicated_customers": 0.0,
-            "orders_customer_id_column": 0.0,
-            "customer_links_complete": 0.0,
-            "foreign_key_integrity": 0.0,
+            "customers_schema": _no_credit(),
+            "deduplicated_customers": _no_credit(),
+            "orders_customer_id_column": _no_credit(),
+            "customer_links_complete": _no_credit(),
+            "foreign_key_integrity": _no_credit(),
         }
 
         customers_exists = conn.execute(
@@ -183,11 +182,11 @@ class Grader:
 
     def _grade_task3(self, conn: sqlite3.Connection) -> dict[str, Any]:
         breakdown = {
-            "numeric_column_type": 0.0,
-            "all_rows_numeric": 0.0,
-            "expected_sum": 0.0,
-            "summary_view_intact": 0.0,
-            "audit_log_intact": 0.0,
+            "numeric_column_type": _no_credit(),
+            "all_rows_numeric": _no_credit(),
+            "expected_sum": _no_credit(),
+            "summary_view_intact": _no_credit(),
+            "audit_log_intact": _no_credit(),
         }
 
         transaction_columns = conn.execute("PRAGMA table_info(transactions);").fetchall()
