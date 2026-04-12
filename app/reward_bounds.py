@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 MIN_REPORTED_REWARD = 0.001
-MAX_REPORTED_REWARD = 0.9
-# Keep strictly below 1.0 even after round(..., 4) (e.g. round(0.99995, 4) == 1.0).
+MAX_REPORTED_REWARD = 0.85  # was 0.9 — avoid hitting ceiling exactly
 _INTERIOR_CEILING = 0.9999
 
 
