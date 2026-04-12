@@ -20,7 +20,11 @@ def _clamp_total(value: float) -> float:
     rounded = round(value, 4)
     if rounded <= 0.0:
         return MIN_REPORTED_REWARD * 10
-    return clamp_open_interval(rounded)
+    result = clamp_open_interval(rounded)
+    # Final safety: ensure we never return exactly 0.0 or 1.0
+    if result <= 0.0 or result >= 1.0:
+        return MAX_REPORTED_REWARD
+    return result
 
 
 class Grader:
